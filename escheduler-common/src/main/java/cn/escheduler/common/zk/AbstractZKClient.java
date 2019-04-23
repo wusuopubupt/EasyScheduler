@@ -46,7 +46,7 @@ import static cn.escheduler.common.Constants.*;
  */
 public abstract class AbstractZKClient {
 
-	private static final Logger logger = LoggerFactory.getLogger(AbstractZKClient.class);
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractZKClient.class);
 
 	/**
 	 *  load configuration file
@@ -80,7 +80,7 @@ public abstract class AbstractZKClient {
 		try {
 			conf = new PropertiesConfiguration(Constants.ZOOKEEPER_PROPERTIES_PATH);
 		}catch (ConfigurationException e){
-			logger.error("load configuration failed : " + e.getMessage(),e);
+			LOG.error("load configuration failed : " + e.getMessage(),e);
 			System.exit(1);
 		}
 	}
@@ -115,7 +115,7 @@ public abstract class AbstractZKClient {
 			initStateLister();
 			
 		}catch(Exception e){
-			logger.error("create zookeeper connect failed : " + e.getMessage(),e);
+			LOG.error("create zookeeper connect failed : " + e.getMessage(),e);
 			System.exit(-1);
 		}
     }
@@ -133,13 +133,13 @@ public abstract class AbstractZKClient {
 			
 			@Override
 			public void stateChanged(CuratorFramework client, ConnectionState newState) {
-				logger.info("state changed , current state : " + newState.name());
+				LOG.info("state changed , current state : " + newState.name());
 				/**
 				 * probably session expired
 				 */
 				if(newState == ConnectionState.LOST){
 					// if lost , then exit
-					logger.info("current zookeepr connection state : connection lost ");
+					LOG.info("current zookeepr connection state : connection lost ");
 				}
 			}
 		};
@@ -150,13 +150,13 @@ public abstract class AbstractZKClient {
 
     public void start() {
     	zkClient.start();
-		logger.info("zookeeper start ...");
+		LOG.info("zookeeper start ...");
     }
 
     public void close() {
 		zkClient.getZookeeperClient().close();
 		zkClient.close();
-		logger.info("zookeeper close ...");
+		LOG.info("zookeeper close ...");
     }
 
 
@@ -187,7 +187,7 @@ public abstract class AbstractZKClient {
 			zkClient.setData().forPath(znode,str.getBytes());
 
 		} catch (Exception e) {
-			logger.error("heartbeat for zk failed : " + e.getMessage(), e);
+			LOG.error("heartbeat for zk failed : " + e.getMessage(), e);
 			stoppable.stop("heartbeat for zk exception, release resources and stop myself");
 		}
 	}
@@ -218,13 +218,13 @@ public abstract class AbstractZKClient {
 
 	private void createZNodePath(String path) {
 		  try {
-				zkClient.create()
-						.creatingParentContainersIfNeeded()
-						.withMode(CreateMode.PERSISTENT)
-						.forPath(path);
-			} catch (Exception e) {
-		  	   logger.error("init system znode failed : " + e.getMessage(), e);
-			}
+		      zkClient.create()
+                      .creatingParentContainersIfNeeded()
+                      .withMode(CreateMode.PERSISTENT)
+                      .forPath(path);
+		  } catch (Exception e) {
+		  	   LOG.error("init system znode failed : " + e.getMessage(), e);
+		  }
 	}
 
 	/**
@@ -246,15 +246,18 @@ public abstract class AbstractZKClient {
 	}
 
 	public void removeDeadServerByHost(String host, String serverType) throws Exception {
-        List<String> deadServers = zkClient.getChildren().forPath(deadServerZNodeParentPath);
-        for(String serverPath : deadServers){
-            if(serverPath.startsWith(serverType+UNDERLINE+host)){
-
-				String server = deadServerZNodeParentPath + SINGLE_SLASH + serverPath;
-				zkClient.delete().forPath(server);
-                logger.info("{} server {} deleted from zk dead server path success" , serverType , host);
-            }
-        }
+        zkClient.getChildren().forPath(deadServerZNodeParentPath)
+                .stream()
+                .filter(path -> path.startsWith(serverType + UNDERLINE + host))
+                .forEach(path -> {
+                    String server = deadServerZNodeParentPath + SINGLE_SLASH + path;
+                    try {
+                        zkClient.delete().forPath(server);
+                        LOG.info("{} server {} deleted from zk dead server path success" , serverType , host);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 	}
 
 	/**
@@ -287,7 +290,7 @@ public abstract class AbstractZKClient {
 
 				zkClient.create().forPath(deadServerPath,(type + UNDERLINE + ipSeqNo).getBytes());
 
-				logger.info("{} server dead , and {} added to zk dead server path success" , serverType, zNode);
+				LOG.info("{} server dead , and {} added to zk dead server path success" , serverType, zNode);
 			}
 		}
 
@@ -314,7 +317,7 @@ public abstract class AbstractZKClient {
 				childrenList = zkClient.getChildren().forPath(masterZNodeParentPath);
 			}
 		} catch (Exception e) {
-			logger.warn(e.getMessage(),e);
+			LOG.warn(e.getMessage(),e);
 			return childrenList.size();
 		}
 		return childrenList.size();
