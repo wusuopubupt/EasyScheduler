@@ -216,40 +216,33 @@ public abstract class AbstractZKClient {
 		return false;
 	}
 
+	private void createZNodePath(String path) {
+		  try {
+				zkClient.create()
+						.creatingParentContainersIfNeeded()
+						.withMode(CreateMode.PERSISTENT)
+						.forPath(path);
+			} catch (Exception e) {
+		  	   logger.error("init system znode failed : " + e.getMessage(), e);
+			}
+	}
+
 	/**
 	 *  init system znode
 	 */
 	protected void initSystemZNode(){
-		try {
 			// read master node parent path from conf
 			masterZNodeParentPath = conf.getString(Constants.ZOOKEEPER_ESCHEDULER_MASTERS);
 			// read worker node parent path from conf
 			workerZNodeParentPath = conf.getString(Constants.ZOOKEEPER_ESCHEDULER_WORKERS);
-
 			// read server node parent path from conf
 			deadServerZNodeParentPath = conf.getString(ZOOKEEPER_ESCHEDULER_DEAD_SERVERS);
 
-			if(zkClient.checkExists().forPath(deadServerZNodeParentPath) == null){
-				//  create persistent dead server parent node
-				zkClient.create().creatingParentContainersIfNeeded()
-						.withMode(CreateMode.PERSISTENT).forPath(deadServerZNodeParentPath);
-			}
-
-			if(zkClient.checkExists().forPath(masterZNodeParentPath) == null){
-				//  create persistent master parent node
-				zkClient.create().creatingParentContainersIfNeeded()
-						.withMode(CreateMode.PERSISTENT).forPath(masterZNodeParentPath);
-			}
-
-			if(zkClient.checkExists().forPath(workerZNodeParentPath) == null){
-				// create persistent worker parent node
-				zkClient.create().creatingParentContainersIfNeeded()
-						.withMode(CreateMode.PERSISTENT).forPath(workerZNodeParentPath);
-			}
-
-		} catch (Exception e) {
-			logger.error("init system znode failed : " + e.getMessage(),e);
-		}
+			List<String> paths = new ArrayList<>(3);
+			paths.add(masterZNodeParentPath);
+			paths.add(workerZNodeParentPath);
+			paths.add(deadServerZNodeParentPath);
+			paths.stream().forEach(path -> createZNodePath(path));
 	}
 
 	public void removeDeadServerByHost(String host, String serverType) throws Exception {
