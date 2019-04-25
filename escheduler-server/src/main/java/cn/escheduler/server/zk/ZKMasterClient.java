@@ -30,6 +30,7 @@ import cn.escheduler.dao.model.ProcessInstance;
 import cn.escheduler.dao.model.TaskInstance;
 import cn.escheduler.server.ResInfo;
 import cn.escheduler.server.utils.ProcessUtils;
+import java.util.stream.Collectors;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
@@ -85,6 +86,7 @@ public class ZKMasterClient extends AbstractZKClient {
 
 	private ZKMasterClient(ProcessDao processDao){
 		this.processDao = processDao;
+
 		init();
 	}
 
@@ -159,32 +161,20 @@ public class ZKMasterClient extends AbstractZKClient {
 	 *  register master znode
 	 */
 	public void registMaster(){
-
 		// get current date
 		Date now = new Date();
 		createTime = now ;
 		try {
-
 			// encapsulation master znnode
-			masterZNode = masterZNodeParentPath + "/" + OSUtils.getHost() + "_";
-			List<String> masterZNodeList = zkClient.getChildren().forPath(masterZNodeParentPath);
-
+			List<String> masterZNodeList = zkClient.getChildren().forPath(masterZNodeParentPath)
+				.stream().filter(path -> path.startsWith(OSUtils.getHost())).collect(Collectors.toList());
 			if (CollectionUtils.isNotEmpty(masterZNodeList)){
-				boolean flag = false;
-				for (String masterZNode : masterZNodeList){
-					if (masterZNode.startsWith(OSUtils.getHost())){
-						flag = true;
-						break;
-					}
-				}
-
-				if (flag){
-					logger.error("register failure , master already started on host : {}" , OSUtils.getHost());
-					// exit system
-					System.exit(-1);
-				}
+				logger.error("register failure , master already started on host : {}" , OSUtils.getHost());
+				// exit system
+				System.exit(-1);
 			}
 
+			masterZNode = masterZNodeParentPath + "/" + OSUtils.getHost() + "_";
 			// specify the format of stored data in ZK nodes
 			String heartbeatZKInfo = getOsInfo(now);
 			// create temporary sequence nodes for master znode
